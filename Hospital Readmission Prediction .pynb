@@ -1,0 +1,405 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[2]:
+
+
+#The dataset consists of information having 10 year hospital readmission data by various measures of diagnosis
+
+
+# In[3]:
+
+
+#Loading the necessary libraries
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report,confusion_matrix
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+
+
+# In[4]:
+
+
+#Reading the csv file containing the US hospital data
+df = pd.read_csv(r'C:\Users\utkar\Downloads\Foldfer for output\hospital.csv')
+
+
+# In[5]:
+
+
+#type of dataframe
+type(df)
+
+
+# In[6]:
+
+
+#check the first few data values in dataset
+print(df.head())
+
+
+# In[7]:
+
+
+#observing the summary of the dataframe
+df.info()
+
+
+# In[8]:
+
+
+#observing the summary statistics of dataframe to get a rough idea of value and its distribution
+df.describe()
+
+
+# In[9]:
+
+
+#check for unique age values
+df['age'].unique()
+
+
+# In[10]:
+
+
+df['age_category'] = df['age'].replace({'[70-80)':'late old','[60-70)':'very old','[40-50)':'early old',
+                                     '[50-60)':'old', '[80-90)':'very late old','[90-100)':'extremely old' })
+
+
+# In[11]:
+
+
+df.info()
+
+
+# In[12]:
+
+
+#dropping the age variable that was in the range values making it inconsistent in dataset
+df.drop('age',axis=1,inplace=True)
+
+
+# In[13]:
+
+
+#viewing summary of dataset
+df.info()
+
+
+# In[15]:
+
+
+#converting the object data type columns to categorical datatypes in the dataframe
+convert_columns = ['medical_specialty','diag_1','diag_2','diag_3','glucose_test','A1Ctest','change','diabetes_med',
+                          'readmitted','age_category']
+
+
+# In[16]:
+
+
+df[convert_columns] = df[convert_columns].astype('category')
+
+
+# In[17]:
+
+
+df.info()
+
+
+# In[18]:
+
+
+#Checking for missing values
+df.replace('Missing',np.nan,inplace=True)
+df.isnull().sum()
+
+
+# In[19]:
+
+
+#removing missing values
+df.dropna(inplace=True)
+
+
+# In[20]:
+
+
+#checking again to make sure every missing value is removed
+df.isnull().sum()
+
+
+# In[24]:
+
+
+#checking the distribution
+#it is right skewed
+import matplotlib.pyplot as plt
+plt.hist(df['time_in_hospital'], bins=10)
+plt.xlabel('Value')
+plt.ylabel('Frequency')
+plt.title('Histogram')
+plt.show()
+
+
+# In[25]:
+
+
+#slight normal distribution
+plt.hist(df['n_lab_procedures'], bins=10)
+plt.xlabel('Value')
+plt.ylabel('Frequency')
+plt.title('Histogram')
+plt.show()
+
+
+# In[26]:
+
+
+#right skewed distribution depicted by n_medications
+plt.hist(df['n_medications'], bins=10)
+plt.xlabel('Value')
+plt.ylabel('Frequency')
+plt.title('Histogram')
+plt.show()
+
+
+# In[27]:
+
+
+#extremely right skewed distribution
+plt.hist(df['n_outpatient'], bins=10)
+plt.xlabel('Value')
+plt.ylabel('Frequency')
+plt.title('Histogram')
+plt.show()
+
+
+# In[28]:
+
+
+#extremely right skewed distribution
+plt.hist(df['n_inpatient'], bins=10)
+plt.xlabel('Value')
+plt.ylabel('Frequency')
+plt.title('Histogram')
+plt.show()
+
+
+# In[24]:
+
+
+#separating target and feature
+x = df.drop('readmitted',axis=1)
+y = df['readmitted']
+
+
+# In[31]:
+
+
+#identifying categorical and numerical variables
+categorical_cols = x.select_dtypes(include=['object']).columns
+numerical_cols = x.select_dtypes(include=[np.number]).columns
+
+
+# In[32]:
+
+
+# Preprocessing pipelines for numerical and categorical data
+
+#fills missing values of numerical columns with median value of each column
+numerical_transformer = SimpleImputer(strategy='median')
+
+#fills missing values of categorical columns with most frequent category and converts categorical into numerical form using one-hot encoding
+categorical_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='most_frequent')),
+    ('onehot', OneHotEncoder(handle_unknown='ignore'))
+])
+
+
+# In[33]:
+
+
+# Bundle preprocessing for numerical and categorical data
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', numerical_transformer, numerical_cols),
+        ('cat', categorical_transformer, categorical_cols)
+    ])
+
+
+# In[34]:
+
+
+# Create the logistic regression model
+#create a pipeline
+#pipeline simplifies the process and ensures same preprocessing and modeling is applied to both training and testing
+#this pipeline does two things
+#preprocessing -> handling missing values and encoding categorical variables
+#applying logistic regression with max iterations 1000 to converge 
+logisticmodel = Pipeline(steps=[
+    ('preprocessor', preprocessor),
+    ('classifier', LogisticRegression(max_iter=1000))
+])
+
+
+# In[35]:
+
+
+# Split the data into training and testing sets
+#80 percent is training while 20 percent is test 
+#random state is 42
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
+
+
+# In[37]:
+
+
+# Train the model
+try:
+    logisticmodel.fit(x_train, y_train)
+    print("Model fitting was successful.")
+except Exception as e:
+    print("Error during model fitting:", e)
+
+
+# In[38]:
+
+
+# Make predictions
+try:
+    predictions = logisticmodel.predict(x_test)
+    print("Predictions were successful.")
+except Exception as e:
+    print("Error during prediction:", e)
+
+
+# In[39]:
+
+
+#model predicts 62% accuracy score when it comes to hospital readmission
+print('\naccuracy score:')
+accuracy_score(y_test,predictions)
+
+
+# In[40]:
+
+
+print('\n confusion matrix')
+print(confusion_matrix(y_test,predictions))
+
+
+# In[41]:
+
+
+#model achieves 65 percent precision 
+#1140(support) actual occurences of readmission in the dataset
+#f1 score .44 and recall score .34 quite low
+#overall moderately accurate model
+#suggests new model implementation
+
+print('\n classification report')
+print(classification_report(y_test,predictions))
+
+
+# In[42]:
+
+
+# Assuming X and y are your features and target variables
+X = df.drop('readmitted', axis=1)
+y = df['readmitted']
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+print("Shapes of training data:")
+print("X_train:", X_train.shape)
+print("y_train:", y_train.shape)
+print("\nShapes of testing data:")
+print("X_test:", X_test.shape)
+print("y_test:", y_test.shape)
+
+
+# In[51]:
+
+
+import matplotlib.pyplot as plt
+
+
+# In[43]:
+
+
+#Machine Learning model 2
+#KNN model
+from sklearn.neighbors import KNeighborsClassifier
+
+
+# In[44]:
+
+
+from sklearn.preprocessing import StandardScaler
+
+# Preprocessing pipelines for numerical and categorical data
+numerical_transformer = SimpleImputer(strategy='median')
+categorical_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='most_frequent')),
+    ('onehot', OneHotEncoder(handle_unknown='ignore'))
+])
+
+# Bundle preprocessing for numerical and categorical data
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', numerical_transformer, numerical_cols),
+        ('cat', categorical_transformer, categorical_cols)
+    ])
+
+# Create the KNN model
+knn_model = Pipeline(steps=[
+    ('preprocessor', preprocessor),
+    ('classifier', KNeighborsClassifier(n_neighbors=5))  # Example with 5 neighbors
+])
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Train the model
+knn_model.fit(X_train, y_train)
+
+# Make predictions
+predictions = knn_model.predict(X_test)
+
+
+# In[46]:
+
+
+try:
+    knn_model.fit(x_train, y_train)
+    print("Model fitting was successful.")
+except Exception as e:
+    print("Error during model fitting:", e)
+
+
+# In[47]:
+
+
+print('\naccuracy score:')
+accuracy_score(y_test,predictions)
+
+
+# In[48]:
+
+
+print('\n confusion matrix')
+print(confusion_matrix(y_test,predictions))
+
+
+# In[49]:
+
+
+print('\n classification report')
+print(classification_report(y_test,predictions))
+
